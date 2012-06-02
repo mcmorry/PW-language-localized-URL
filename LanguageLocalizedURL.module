@@ -83,9 +83,6 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
-		//$this->addHook('Page::mlUrl', $this, 'mlUrl');
-		
-		// this leads to some problems in the administration
 		$this->addHookAfter('Page::path', $this, 'mlUrl');
 	}
 	
@@ -97,6 +94,9 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	*/
 	public function mlUrl($event) {
 		$page = $event->object;
+		
+		if($page->template == 'admin') return;
+		
 		$includePageId = false;
 		$includeParentId = false;
 		
@@ -107,23 +107,25 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 			$includeParentId = $event->arguments(1);
 		}
 		
-		if($page->id === 1) return '/';
-		
-		// generate the url using titles and, evetually id
-		$path = '';
-		$parents = $page->parents();
-		foreach($parents as $parent) {
-			if($parent->id > 1) {		
-				$path .= "/".($includeParentId?$parent->id.'_':'').$this->toSlug($parent->title);
-			}
-		}
-		$url = $path . '/'.($includePageId?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
-		
-		// add the language code at the beginning of the url
+		// retrieve the language code to prepend to the url
 		$lang = $this->user->language->name;
 		if (!$lang || $lang=='default') $lang = $this->getDefaultLanguage();
-
-		$event->return = '/'.$lang.$url;
+		
+		if($page->id === 1) {
+			$event->return = "/$lang/";
+		} else {			
+			// generate the url using titles and, evetually id
+			$path = '';
+			$parents = $page->parents();
+			foreach($parents as $parent) {
+				if($parent->id > 1) {		
+					$path .= "/".($includeParentId?$parent->id.'_':'').$this->toSlug($parent->title);
+				}
+			}
+			$url = $path . '/'.($includePageId?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
+			
+			$event->return = '/'.$lang.$url;
+		}
 	}
 
 	public function toSlug($str) {
