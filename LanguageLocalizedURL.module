@@ -1,0 +1,184 @@
+<?php
+/**
+* Localized URL generator and parser
+* 
+* Author: Maurizio Margiotta
+* http://processwire.com/talk/user/117-mcmorry/
+*
+* source: https://github.com/mcmorry/PW-language-localized-URL
+*
+* Many thanks to diogo for starting concept and support
+* http://processwire.com/talk/user/88-diogo/)
+*
+*/
+class LanguageLocalizedURL extends WireData implements Module, ConfigurableModule {
+
+	protected static $defaults = array(
+		'defaultLang' => 'en'
+	);
+	
+	protected function getDefaultLanguage() {
+		if (!$this->defaultLang) return LanguageLocalizedURL::$defaults['defaultLang'];
+		return $this->defaultLang;
+	}
+
+	/**
+	 * getModuleInfo is a module required by all modules to tell ProcessWire about them
+	 *
+	 * @return array
+	 *
+	 */
+	public static function getModuleInfo() {
+
+		return array(
+
+			// The module'ss title, typically a little more descriptive than the class name
+			'title' => 'Generate and parse localized URL', 
+
+			// version: major, minor, revision, i.e. 100 = 1.0.0
+			'version' => 100, 
+
+			// summary is brief description of what this module is
+			'summary' => "This module is useful to generate localized url. See the comments inside the source to use it correctly.",
+			
+			// Optional URL to more information about the module
+			'href' => '',
+
+			// singular=true: indicates that only one instance of the module is allowed.
+			// This is usually what you want for modules that attach hooks. 
+			'singular' => true, 
+
+			// autoload=true: indicates the module should be started with ProcessWire.
+			// This is necessary for any modules that attach runtime hooks, otherwise those
+			// hooks won't get attached unless some other code calls the module on it's own.
+			// Note that autoload modules are almost always also 'singular' (seen above).
+			'autoload' => true, 
+			);
+	}
+	
+	static public function getModuleConfigInputfields(array $data) {
+
+		$data = array_merge(self::$defaults, $data);
+
+		$fields = new InputfieldWrapper();
+		$modules = Wire::getFuel("modules");
+
+		$field = $modules->get("InputfieldText");
+		$field->attr('name', 'defaultLang');
+		$field->attr('size', 10);
+		$field->attr('value', $data['defaultLang']);
+		$field->label = "Default language";
+		$field->description = "What is the url code you want to use for your defaul language?";
+		$field->notes = "Example: en, it, fr, ...";
+		$fields->append($field);
+
+		return $fields;
+	}
+	
+	/**
+	 * Initialize the module
+	 *
+	 * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+	 * when ProcessWire's API is ready. As a result, this is a good place to attach hooks. 
+	 *
+	 */
+	public function init() {
+		$this->addHook('Page::mlUrl', $this, 'mlUrl');
+	}
+	
+	/**
+	* This method builds a localized url with this format: [language code]/[localized parent title]/[localized page title]
+	* It accepts two parameters, both optional:
+	* 1: bool If true the url will contain the id of the loaded page: [language code]/[localized parent title]/[page id]_[localized page title]
+	* 2: bool If true the url will contain the id of the parents: [language code]/[parent id]_[localized parent title]/[localized page title]
+	*/
+	public function mlUrl($event) {
+		$page = $event->object;
+		$includePageId = false;
+		$includeParentId = false;
+		
+		if (count($event->arguments)>=0) {
+			$includePageId = $event->arguments(0);
+		}
+		if (count($event->arguments)>=1) {
+			$includeParentId = $event->arguments(1);
+		}
+		
+		if($page->id === 1) return '/';
+		
+		// generate the url using titles and, evetually id
+		$path = '';
+		$parents = $page->parents();
+		foreach($parents as $parent) {
+			if($parent->id > 1) {		
+				$path .= "/".($includeParentId?$parent->id.'_':'').$this->toSlug($parent->title);
+			}
+		}
+		$url = $path . '/'.($includePageId?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
+		
+		// add the language code at the beginning of the url
+		$lang = $this->user->language->name;
+		if (!$lang || $lang=='default') $lang = $this->getDefaultLanguage();
+
+		$event->return = '/'.$lang.$url;
+	}
+
+	public function toSlug($str) {
+        $str = mb_strtolower($str); // needed for uppercase cyrillic chars
+        $str = $this->sanitizer->pageName($str, Sanitizer::translate);
+        return $str;
+	}
+
+	/**
+	* Parse the localized URL to load the correct page
+	*/
+	public function parseUrl() {
+		$page = $this->fuel('page');
+		$user = $this->fuel('user');
+		$languages = $this->fuel('languages');
+		$input = $this->fuel('input');
+		$pages = $this->fuel('pages');
+		
+		// Set the current language based on the name of the page
+		$lang = $page->name;
+		if ($lang == $this->getDefaultLanguage()) $lang='default';
+		$user->language = $languages->get($lang);
+		
+		// search the page to open
+		$basePage = $pages->get("/");
+		$segments = $input->urlSegments;
+		if($segments){
+			$page = $basePage;
+			foreach($segments as $segment){
+				$page = $this->getPage($page, $segment);
+				if ($page === null) throw new Wire404Exception();
+			}
+		} else {
+			$page = $basePage;
+		}
+		$this->fuel->set('page', $page);
+		return $page;
+	}
+	
+	private function getPage($basePage, $segment) {
+		$pages = $this->fuel('pages');
+		
+		$parts = explode('_', $segment);
+		$pageid=null;
+		$page = null;
+		if (count($parts)>1 && is_numeric($parts[0])) {
+			$pageid=$parts[0];
+			$page = $pages->get($pageid);
+			if ($page instanceof NullPage) $page=null;
+		} else {
+			$children = $basePage->children;
+			foreach ($children as $child){
+				if($segment==$this->toSlug($child->title)){
+					$page = $child;
+					break;
+				}
+			}
+		}
+		return $page;
+	}
+}
