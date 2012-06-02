@@ -83,7 +83,10 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
-		$this->addHook('Page::mlUrl', $this, 'mlUrl');
+		//$this->addHook('Page::mlUrl', $this, 'mlUrl');
+		
+		// this leads to some problems in the administration
+		$this->addHookAfter('Page::path', $this, 'mlUrl');
 	}
 	
 	/**
