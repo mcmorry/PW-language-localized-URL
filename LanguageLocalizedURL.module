@@ -5,10 +5,13 @@
 * Author: Maurizio Margiotta
 * http://processwire.com/talk/user/117-mcmorry/
 *
-* source: https://github.com/mcmorry/PW-language-localized-URL
+* Source: https://github.com/mcmorry/PW-language-localized-URL
 *
-* Many thanks to diogo for starting concept and support
-* http://processwire.com/talk/user/88-diogo/)
+* Many thanks to Diogo for starting concept and support
+* http://processwire.com/talk/user/88-diogo/
+*
+* Many thanks to Soma for many improvements
+* http://processwire.com/talk/user/100-soma/
 *
 */
 class LanguageLocalizedURL extends WireData implements Module, ConfigurableModule {
@@ -35,7 +38,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 003,
+			'version' => 004,
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -104,7 +107,6 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 */
 	public function init() {
 		$this->addHookAfter('Page::path', $this, 'mlUrl');
-		$this->addHookProperty('Page::mlUrlSegments', $this, 'mlUrlSegments');
 	}
 
 	/**
@@ -218,13 +220,10 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		return $page;
 	}
 	
-	public function mlUrlSegments(HookEvent $event) {
-		$page = $event->object;
-		$input = $this->input;
-		
+	public function mlUrlSegments() {
 		$urlSegments = null;
 		if($page->template->urlSegments) {
-			$urlSegments = array_slice($input->urlSegments,count($page->parents));
+			$urlSegments = array_slice($this->input->urlSegments,count($this->page->parents));
 			return $event->return = $urlSegments;
 		}
 		return $event->return = array();
