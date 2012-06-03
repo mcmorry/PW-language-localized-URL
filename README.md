@@ -1,7 +1,7 @@
 PW-language-localized-URL
 =========================
 
-Version 0.0.2
+Version 0.0.3
 
 ProcessWire's module to generate and parse localized URL for multilingual websites.
 
@@ -85,7 +85,7 @@ If you print a list of pages you will need to filter out the locked pages for a 
 	
 ### urlSegments
 
-This module use the url segments of ProcessWire to map the localized pages to real ones.  
+This module uses the url segments of ProcessWire to map the localized pages to real ones.  
 This means that `$input->urlSegments` will return all the localized pages toghether with the segments.  
 Plus, the limit of 4 segments includes the page tree.  
 
