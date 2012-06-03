@@ -14,9 +14,12 @@
 class LanguageLocalizedURL extends WireData implements Module, ConfigurableModule {
 
 	protected static $defaults = array(
-		'defaultLang' => 'en'
+		'defaultLang' => 'en',
+		'includePageId' => 0,
+		'includeParentId' => 0,
+		'publishedPageField' => 'language_published'
 	);
-	
+
 	protected function getDefaultLanguage() {
 		if (!$this->defaultLang) return LanguageLocalizedURL::$defaults['defaultLang'];
 		return $this->defaultLang;
@@ -31,37 +34,27 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	public static function getModuleInfo() {
 
 		return array(
-
-			// The module'ss title, typically a little more descriptive than the class name
-			'title' => 'Generate and parse localized URL', 
-
-			// version: major, minor, revision, i.e. 100 = 1.0.0
-			'version' => 100, 
-
-			// summary is brief description of what this module is
+			'title' => 'Generate and parse localized URL',
+			'version' => 002,
 			'summary' => "This module is useful to generate localized url. See the comments inside the source to use it correctly.",
-			
-			// Optional URL to more information about the module
 			'href' => '',
-
-			// singular=true: indicates that only one instance of the module is allowed.
-			// This is usually what you want for modules that attach hooks. 
-			'singular' => true, 
-
-			// autoload=true: indicates the module should be started with ProcessWire.
-			// This is necessary for any modules that attach runtime hooks, otherwise those
-			// hooks won't get attached unless some other code calls the module on it's own.
-			// Note that autoload modules are almost always also 'singular' (seen above).
-			'autoload' => true, 
-			);
+			'singular' => true,
+			'autoload' => true
+		);
 	}
-	
+
+
+	protected function getConfig($key) {
+		if (!$this->$key) return LanguageLocalizedURL::$defaults[$key];
+		return $this->$key;
+	}
+
 	static public function getModuleConfigInputfields(array $data) {
 
 		$data = array_merge(self::$defaults, $data);
 
 		$fields = new InputfieldWrapper();
-		$modules = Wire::getFuel("modules");
+		$modules = wire("modules");
 
 		$field = $modules->get("InputfieldText");
 		$field->attr('name', 'defaultLang');
@@ -72,9 +65,36 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->notes = "Example: en, it, fr, ...";
 		$fields->append($field);
 
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'includePageId');
+		$field->attr('checked', empty($data['includePageId']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->label = "Page ID prefix";
+		$field->description = "Include page ID as prefix (id_slug)";
+		$fields->append($field);
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'includeParentId');
+		$field->attr('checked', empty($data['includeParentId']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->label = "Parent ID prefix";
+		$field->description = "Include parent ID as prefix (id_slug)";
+		$fields->append($field);
+
+		$field = $modules->get("InputfieldText");
+		$field->attr('name', 'publishedPageField');
+		$field->attr('value', $data['publishedPageField']);
+		$field->label = "Page field for published languages";
+		$field->description = "Page field name for defining the languages that are published."
+			." Create a page field i.e. language_published. Set the template to the one you use for the proxy pages."
+			." Set inputfield type to checkboxes. You also want to include a check in you selectors for navigation or lists"
+			." to determine if a page in the current language is really published.";
+		$field->notes = "Example: language_published (name of the field as string)";
+		$fields->append($field);
+
 		return $fields;
 	}
-	
+
 	/**
 	 * Initialize the module
 	 *
@@ -83,75 +103,112 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
-		$this->addHook('Page::mlUrl', $this, 'mlUrl');
+		$this->addHookAfter('Page::path', $this, 'mlUrl');
 	}
-	
+
 	/**
 	* This method builds a localized url with this format: [language code]/[localized parent title]/[localized page title]
 	* It accepts two parameters, both optional:
 	* 1: bool If true the url will contain the id of the loaded page: [language code]/[localized parent title]/[page id]_[localized page title]
 	* 2: bool If true the url will contain the id of the parents: [language code]/[parent id]_[localized parent title]/[localized page title]
 	*/
-	public function mlUrl($event) {
+	public function mlUrl(HookEvent $event) {
 		$page = $event->object;
-		$includePageId = false;
-		$includeParentId = false;
 		
-		if (count($event->arguments)>=0) {
-			$includePageId = $event->arguments(0);
-		}
-		if (count($event->arguments)>=1) {
-			$includeParentId = $event->arguments(1);
-		}
-		
-		if($page->id === 1) return '/';
-		
-		// generate the url using titles and, evetually id
-		$path = '';
-		$parents = $page->parents();
-		foreach($parents as $parent) {
-			if($parent->id > 1) {		
-				$path .= "/".($includeParentId?$parent->id.'_':'').$this->toSlug($parent->title);
-			}
-		}
-		$url = $path . '/'.($includePageId?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
-		
+		// exclude from admin
+		if($page->template == 'admin') return;
+
 		// add the language code at the beginning of the url
 		$lang = $this->user->language->name;
 		if (!$lang || $lang=='default') $lang = $this->getDefaultLanguage();
 
+		// if on homepage return current language root
+		if($page->id === 1) return $event->return = "/$lang/";
+		
+		// generate the url using titles and, eventually id
+		$path = '';
+		$parents = $page->parents();
+		foreach($parents as $parent) {
+			if($parent->id > 1) {       
+				$path .= "/".($this->getConfig("includeParentId")?$parent->id.'_':'').$this->toSlug($parent->title);
+			}
+		}
+		$url = $path . '/'.($this->getConfig("includePageId")?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
 		$event->return = '/'.$lang.$url;
 	}
 
 	public function toSlug($str) {
-        $str = mb_strtolower($str); // needed for uppercase cyrillic chars
-        $str = $this->sanitizer->pageName($str, Sanitizer::translate);
-        return $str;
+		$str = mb_strtolower($str);
+		$str = $this->sanitizer->pageName($str, Sanitizer::translate);
+		return $str;
 	}
 
 	/**
 	* Parse the localized URL to load the correct page
 	*/
 	public function parseUrl() {
-		$page = $this->fuel('page');
-		$user = $this->fuel('user');
-		$languages = $this->fuel('languages');
-		$input = $this->fuel('input');
-		$pages = $this->fuel('pages');
-		
-		// Set the current language based on the name of the page
+		$page		= $this->page;
+		$user		= $this->user;
+		$languages	= $this->languages;
+		$input		= $this->input;
+		$pages		= $this->pages;
+
+		// Set the current language based on the name of the proxy page
 		$lang = $page->name;
-		if ($lang == $this->getDefaultLanguage()) $lang='default';
+		if ($lang == $this->getDefaultLanguage()) $lang = 'default';
 		$user->language = $languages->get($lang);
-		
+
 		// search the page to open
 		$basePage = $pages->get("/");
 		$segments = $input->urlSegments;
+
 		if($segments){
 			$page = $basePage;
 			foreach($segments as $segment){
+				// save instance for testing pagenum / urlsegments
+				$parent = $page;
 				$page = $this->getPage($page, $segment);
-				if ($page === null) throw new Wire404Exception();
+
+				if($page === null) {
+
+					// pagenums enabled on template?
+					if($parent->template->allowPageNum) {
+						$page = $parent;
+
+					// urlsegments enabled on template?
+					} else if($parent->template->urlSegments) {
+						// return past found page
+						$page = $parent;
+						// url segments to remap? don't think this is a good idea
+						// should be done on template
+
+						// this requires to add a function to unset urlSegments array in WireInput class
+
+						// if(count($segments) < count($page->parents)) continue;
+						// $segmentsCount = count($segments) - count($parent->parents);
+						// foreach($segments as $key => $segment){
+						//     if($segmentsCount < $key) {
+						//         $input->unsetUrlSegment($key);
+						//         $input->setUrlSegment($key - $segmentsCount,$segment);
+						//     }
+						//     else $input->unsetUrlSegment($key);
+						// }
+					} else {
+						throw new Wire404Exception();
+					}
+				}
+
+				// real language url segment name
+				$langname = $lang == 'default' ? $this->getDefaultLanguage() : $lang;
+
+				// if the language is not published throw 404
+				// this requires a page field "language_published" with template set the same 
+				// as for the language proxy pages /en/, /de/,...
+				$pub_field = $this->getConfig("publishedPageField");
+				if($page->get($pub_field)){
+					if(!$page->get($pub_field)->has($pages->get("/$langname/")))
+						throw new Wire404Exception();
+				}
 			}
 		} else {
 			$page = $basePage;
@@ -159,21 +216,22 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$this->fuel->set('page', $page);
 		return $page;
 	}
-	
+
 	private function getPage($basePage, $segment) {
-		$pages = $this->fuel('pages');
-		
-		$parts = explode('_', $segment);
-		$pageid=null;
-		$page = null;
-		if (count($parts)>1 && is_numeric($parts[0])) {
-			$pageid=$parts[0];
+		$pages	= $this->pages;
+
+		$parts  = explode('_', $segment);
+		$pageid = null;
+		$page   = null;
+		if (count($parts) > 1 && is_numeric($parts[0])) {
+			$pageid = $parts[0];
 			$page = $pages->get($pageid);
-			if ($page instanceof NullPage) $page=null;
+			if ($page instanceof NullPage) $page = null;
 		} else {
-			$children = $basePage->children;
+			// include hidden pages to be found
+			$children = $basePage->children('include=hidden');
 			foreach ($children as $child){
-				if($segment==$this->toSlug($child->title)){
+				if($segment == $this->toSlug($child->title)){
 					$page = $child;
 					break;
 				}
