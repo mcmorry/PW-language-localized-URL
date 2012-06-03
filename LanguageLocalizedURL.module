@@ -104,6 +104,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 */
 	public function init() {
 		$this->addHookAfter('Page::path', $this, 'mlUrl');
+		$this->addHookProperty('Page::mlUrlSegments', $this, 'mlUrlSegments');
 	}
 
 	/**
@@ -137,7 +138,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$event->return = '/'.$lang.$url;
 	}
 
-	public function toSlug($str) {
+	private function toSlug($str) {
 		$str = mb_strtolower($str);
 		$str = $this->sanitizer->pageName($str, Sanitizer::translate);
 		return $str;
@@ -215,6 +216,18 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		}
 		$this->fuel->set('page', $page);
 		return $page;
+	}
+	
+	public function mlUrlSegments(HookEvent $event) {
+		$page = $event->object;
+		$input = $this->input;
+		
+		$urlSegments = null;
+		if($page->template->urlSegments) {
+			$urlSegments = array_slice($input->urlSegments,count($page->parents));
+			return $event->return = $urlSegments;
+		}
+		return $event->return = array();
 	}
 
 	private function getPage($basePage, $segment) {

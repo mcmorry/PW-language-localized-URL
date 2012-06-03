@@ -39,7 +39,7 @@ To make it to work it's necessary to follow these steps:
 1. Create below the root page, one page per each language (en, it, fr, ...) (for the default language too) using that template.  
 The names of these pages should match the names you set in the Languages settings of ProcessWire. These names will be used as first folder inside the URLs.  
 1. Enter in the module settings to inidicate the default language code, that will be mapped to the default languge inside ProcessWire.  
-1. Create all the your tree of pages directly below the root page.  
+1. Create all your tree of pages directly below the root page.  
 
 ### performance issue
 
@@ -66,7 +66,7 @@ If you don't want this behavior, and prefer to hide a page for a specific langua
 1. Assing this new field the the templates of pages you want to lock.
 1. Edit the page to manually enable the allowed language.
 
-If you print a list of pages you will needto filter out the locked pages for a specific language:  
+If you print a list of pages you will need to filter out the locked pages for a specific language:  
 
 	$homepage = $pages->get("/"); 
 	$lang = $user->language;
@@ -84,4 +84,12 @@ If you print a list of pages you will needto filter out the locked pages for a s
 	}
 	
 ### urlSegments
+
+This module use the url segments of ProcessWire to map the localized pages to real ones.  
+This means that `$input->urlSegments` will return all the localized pages toghether with the segments.  
+Plus, the limit of 4 segments includes the page tree.  
+
+To access the adjusted array of urlSegments, without the pages, you can access a new property added to the Page object:
+
+	$page->mlUrlSegments
 
