@@ -38,7 +38,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 004,
+			'version' => 005,
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -164,6 +164,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		// search the page to open
 		$basePage = $pages->get("/");
 		$segments = $input->urlSegments;
+		$realSegmentsFound = false;
 
 		if($segments){
 			$page = $basePage;
@@ -182,20 +183,10 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 					} else if($parent->template->urlSegments) {
 						// return past found page
 						$page = $parent;
-						// url segments to remap? don't think this is a good idea
-						// should be done on template
-
-						// this requires to add a function to unset urlSegments array in WireInput class
-
-						// if(count($segments) < count($page->parents)) continue;
-						// $segmentsCount = count($segments) - count($parent->parents);
-						// foreach($segments as $key => $segment){
-						//     if($segmentsCount < $key) {
-						//         $input->unsetUrlSegment($key);
-						//         $input->setUrlSegment($key - $segmentsCount,$segment);
-						//     }
-						//     else $input->unsetUrlSegment($key);
-						// }
+						
+						$realSegmentsFound = true;
+						
+						break;
 					} else {
 						throw new Wire404Exception();
 					}
@@ -216,19 +207,19 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		} else {
 			$page = $basePage;
 		}
+		
+		// Reindex urlSegments
+		$pagesCount = count($page->parents);
+		if (!$realSegmentsFound || count($segments) > $pagesCount) {
+			for ($i=0; $i<$pagesCount; $i++) {
+				$input->setUrlSegment(1, null);
+			}
+		}
+		
 		$this->fuel->set('page', $page);
 		return $page;
 	}
 	
-	public function mlUrlSegments() {
-		$urlSegments = null;
-		if($page->template->urlSegments) {
-			$urlSegments = array_slice($this->input->urlSegments,count($this->page->parents));
-			return $event->return = $urlSegments;
-		}
-		return $event->return = array();
-	}
-
 	private function getPage($basePage, $segment) {
 		$pages	= $this->pages;
 

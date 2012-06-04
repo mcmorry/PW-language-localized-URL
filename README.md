@@ -1,7 +1,7 @@
 PW-language-localized-URL
 =========================
 
-Version 0.0.4
+Version 0.0.5
 
 ProcessWire's module to generate and parse localized URL for multilingual websites.
 
@@ -29,17 +29,19 @@ This module is meant to be combined with use of FieldtypePageTitleLanguage, Fiel
 
 To make it to work it's necessary to follow these steps:
 
-1. define a template with this:
+1. define a template with this code:
 
 	<?php 
 		$page = $modules->get('LanguageLocalizedURL')->parseUrl();
 		include("./{$page->template}.php");
 	?>
 
+1. Enable "Allow URL Segments" for this template.
 1. Create below the root page, one page per each language (en, it, fr, ...) (for the default language too) using that template.  
 The names of these pages should match the names you set in the Languages settings of ProcessWire. These names will be used as first folder inside the URLs.  
-1. Enter in the module settings to inidicate the default language code, that will be mapped to the default languge inside ProcessWire.  
-1. Create all your tree of pages directly below the root page.  
+On these pages could be useful to set the Status to Hidden.  
+1. Enter in the module settings to inidicate the default language code (eg. 'en'), that will be mapped to the default languge inside ProcessWire.  
+1. Create the pages of the website directly below the root page.  
 
 ### performance issue
 
@@ -85,13 +87,11 @@ If you print a list of pages you will need to filter out the locked pages for a 
 	
 ### urlSegments
 
-This module uses the url segments of ProcessWire to map the localized pages to real ones.  
-This means that `$input->urlSegments` will return all the localized pages toghether with the segments.  
+This module uses the url segments of ProcessWire to map the localized pages to real ones but the array of segment is re-indexed to contains only real segments.
+This means that you can access `$input->urlSegments` as usual.  
+
 Plus, the limit of 4 segments includes the page tree, so it could be necessary to change this limit in the `config.php` file:  
 
 	$config->maxUrlSegments = 4;
 
-To access the adjusted array of urlSegments, without the pages, you can call the method `mlUrlSegments()` of the module:
-
-	$urlSegments = $modules->get("LanguageLocalizedURL")->mlUrlSegments();
 
