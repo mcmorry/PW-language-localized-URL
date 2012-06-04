@@ -29,17 +29,19 @@ This module is meant to be combined with use of FieldtypePageTitleLanguage, Fiel
 
 To make it to work it's necessary to follow these steps:
 
-1. define a template with this:
+1. define a template with this code:
 
 	<?php 
 		$page = $modules->get('LanguageLocalizedURL')->parseUrl();
 		include("./{$page->template}.php");
 	?>
 
+1. Enable "Allow URL Segments" for this template.
 1. Create below the root page, one page per each language (en, it, fr, ...) (for the default language too) using that template.  
 The names of these pages should match the names you set in the Languages settings of ProcessWire. These names will be used as first folder inside the URLs.  
-1. Enter in the module settings to inidicate the default language code, that will be mapped to the default languge inside ProcessWire.  
-1. Create all your tree of pages directly below the root page.  
+On these pages could be useful to set the Status to Hidden.  
+1. Enter in the module settings to inidicate the default language code (eg. 'en'), that will be mapped to the default languge inside ProcessWire.  
+1. Create the pages of the website directly below the root page.  
 
 ### performance issue
 
