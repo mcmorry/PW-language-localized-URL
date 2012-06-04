@@ -38,7 +38,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 004,
+			'version' => 005,
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
