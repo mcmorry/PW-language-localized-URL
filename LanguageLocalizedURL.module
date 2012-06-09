@@ -20,7 +20,8 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		'defaultLang' => 'en',
 		'includePageId' => 0,
 		'includeParentId' => 0,
-		'publishedPageField' => 'language_published'
+		'publishedPageField' => 'language_published',
+		'noFolderForDefaultLanguage' => 0
 	);
 
 	protected function getDefaultLanguage() {
@@ -38,7 +39,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 005,
+			'version' => 006,
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -66,6 +67,14 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->label = "Default language";
 		$field->description = "What is the url code you want to use for your defaul language?";
 		$field->notes = "Example: en, it, fr, ...";
+		$fields->append($field);
+		
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'noFolderForDefaultLanguage');
+		$field->attr('checked', empty($data['noFolderForDefaultLanguage']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->label = "Disable sub-folder for default language";
+		$field->description = "If selected the pages in default language will NOT have a sub-folder for the language (eg. /en/)";
 		$fields->append($field);
 
 		$field = $modules->get("InputfieldCheckbox");
@@ -123,10 +132,14 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		// add the language code at the beginning of the url
 		$lang = $this->user->language->name;
-		if (!$lang || $lang=='default') $lang = $this->getDefaultLanguage();
+		$defaultLang = $this->getDefaultLanguage();
+		if (!$lang || $lang=='default') $lang = $defaultLang;
 
 		// if on homepage return current language root
-		if($page->id === 1) return $event->return = "/$lang/";
+		if($page->id === 1) {
+			if ($lang === $defaultLang && $this->getConfig("noFolderForDefaultLanguage")) return $event->return = '/';
+			else return $event->return = "/$lang/";
+		}
 		
 		// generate the url using titles and, eventually id
 		$path = '';
@@ -137,7 +150,9 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 			}
 		}
 		$url = $path . '/'.($this->getConfig("includePageId")?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
-		$event->return = '/'.$lang.$url;
+		
+		if ($lang === $defaultLang && $this->getConfig("noFolderForDefaultLanguage")) $event->return = $url;
+		else $event->return = '/'.$lang.$url;
 	}
 
 	private function toSlug($str) {
