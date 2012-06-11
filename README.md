@@ -31,10 +31,10 @@ To make it to work it's necessary to follow these steps:
 
 1. define a template with this code:
 
-	<?php 
+	`<?php 
 		$page = $modules->get('LanguageLocalizedURL')->parseUrl();
-		include("./{$page->template}.php");
-	?>
+		echo $page->render();
+	?>`
 
 1. Enable "Allow URL Segments" for this template.
 1. Create below the root page, one page per each language (en, it, fr, ...) (for the default language too if you don't want disable it in the settings) using that template.  
