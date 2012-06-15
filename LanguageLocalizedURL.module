@@ -29,6 +29,11 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		return $this->defaultLang;
 	}
 
+	protected function getConfig($key) {
+		if (!$this->$key) return LanguageLocalizedURL::$defaults[$key];
+		return $this->$key;
+	}
+
 	/**
 	 * getModuleInfo is a module required by all modules to tell ProcessWire about them
 	 *
@@ -39,72 +44,12 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 006,
+			'version' => 007,
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
 			'autoload' => true
 		);
-	}
-
-
-	protected function getConfig($key) {
-		if (!$this->$key) return LanguageLocalizedURL::$defaults[$key];
-		return $this->$key;
-	}
-
-	static public function getModuleConfigInputfields(array $data) {
-
-		$data = array_merge(self::$defaults, $data);
-
-		$fields = new InputfieldWrapper();
-		$modules = wire("modules");
-
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'defaultLang');
-		$field->attr('size', 10);
-		$field->attr('value', $data['defaultLang']);
-		$field->label = "Default language";
-		$field->description = "What is the url code you want to use for your defaul language?";
-		$field->notes = "Example: en, it, fr, ...";
-		$fields->append($field);
-		
-		$field = $modules->get("InputfieldCheckbox");
-		$field->attr('name', 'noFolderForDefaultLanguage');
-		$field->attr('checked', empty($data['noFolderForDefaultLanguage']) ? '' : 'checked');
-		$field->attr('value', 1);
-		$field->label = "Disable sub-folder for default language";
-		$field->description = "If selected the pages in default language will NOT have a sub-folder for the language (eg. /en/)";
-		$fields->append($field);
-
-		$field = $modules->get("InputfieldCheckbox");
-		$field->attr('name', 'includePageId');
-		$field->attr('checked', empty($data['includePageId']) ? '' : 'checked');
-		$field->attr('value', 1);
-		$field->label = "Page ID prefix";
-		$field->description = "Include page ID as prefix (id_slug)";
-		$fields->append($field);
-
-		$field = $modules->get("InputfieldCheckbox");
-		$field->attr('name', 'includeParentId');
-		$field->attr('checked', empty($data['includeParentId']) ? '' : 'checked');
-		$field->attr('value', 1);
-		$field->label = "Parent ID prefix";
-		$field->description = "Include parent ID as prefix (id_slug)";
-		$fields->append($field);
-
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'publishedPageField');
-		$field->attr('value', $data['publishedPageField']);
-		$field->label = "Page field for published languages";
-		$field->description = "Page field name for defining the languages that are published."
-			." Create a page field i.e. language_published. Set the template to the one you use for the proxy pages."
-			." Set inputfield type to checkboxes. You also want to include a check in you selectors for navigation or lists"
-			." to determine if a page in the current language is really published.";
-		$field->notes = "Example: language_published (name of the field as string)";
-		$fields->append($field);
-
-		return $fields;
 	}
 
 	/**
@@ -115,6 +60,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
+		$this->addHookBefore('FieldtypeTextareaLanguage::wakeupValue', $this, 'hookWakeupValue');
 		$this->addHookAfter('Page::path', $this, 'mlUrl');
 	}
 
@@ -125,6 +71,9 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	* 2: bool If true the url will contain the id of the parents: [language code]/[parent id]_[localized parent title]/[localized page title]
 	*/
 	public function mlUrl(HookEvent $event) {
+		
+		if( strpos( $_SERVER['HTTP_REFERER'], "page/link/?id" ) !== false ) return;
+
 		$page = $event->object;
 		
 		// exclude from admin
@@ -165,11 +114,11 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	* Parse the localized URL to load the correct page
 	*/
 	public function parseUrl() {
-		$page		= $this->page;
-		$user		= $this->user;
-		$languages	= $this->languages;
-		$input		= $this->input;
-		$pages		= $this->pages;
+		$page       = $this->page;
+		$user       = $this->user;
+		$languages  = $this->languages;
+		$input      = $this->input;
+		$pages      = $this->pages;
 
 		// Set the current language based on the name of the proxy page
 		$lang = $page->name;
@@ -236,7 +185,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	}
 	
 	private function getPage($basePage, $segment) {
-		$pages	= $this->pages;
+		$pages  = $this->pages;
 
 		$parts  = explode('_', $segment);
 		$pageid = null;
@@ -256,5 +205,163 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 			}
 		}
 		return $page;
+	}
+
+	/**
+	 * parse for regular page urls in language textareas
+	 * modifies url with current language url (not stored)
+	 */
+	public function hookWakeupValue(HookEvent $event) {
+
+		$page = $event->arguments[0]; // not using, but here if you need it
+		$field = $event->arguments[1]; // not using, but here if you need it
+		$value = $event->arguments[2];
+		
+		if(empty($value)) return;
+		
+		$language = wire('user')->language;
+		
+		if(!is_object($value)) return;
+		if($value instanceof LanguagesPageFieldValue) {
+			// get the language value for parsing for page urls
+			$replaced_value = $value->getLanguageValue($language->id);
+		}
+
+		$rootUrl = rtrim(wire('config')->urls->root, '/');
+
+		// find all links
+		if(!preg_match_all('{href=[\'"]([-_./a-z0-9]+)[\'"]}', $replaced_value, $matches)) return;
+		
+		foreach($matches[1] as $key => $url) {
+
+			// slice off subdirectory if site is running from one, so we have a clean URL from PW-install root
+			if($rootUrl && strpos($url, $rootUrl) === 0) $url = substr($url, strlen($rootUrl));
+			
+			// see if this is a link to a PW-managed page in the site
+			$linkPage = wire('pages')->get($url);
+
+			// if not go on to the next
+			if(!$linkPage->id) continue;
+
+			// get language url
+			$langUrl = $linkPage->url;
+
+			// replace the default language URL with the language URL
+			$replaced_value = str_replace($matches[0][$key], "href='$langUrl'", $replaced_value);
+		}
+
+		// set the modified language value
+		$value = $value->setLanguageValue($language->id, $replaced_value);
+		$event->return = $value;
+	}
+
+	/**
+	 * commented out for later
+	 */
+	/*
+	public function install() {
+
+		// create language proxy template
+		$tname = 'language_url_proxy';
+		if (!$fieldgroup = $this->fieldgroups->get($tname)) {
+			$fieldgroup = new Fieldgroup();
+			$fieldgroup->name = $tname;
+			$fieldgroup->add($this->fields->get('title'));
+			$fieldgroup->save();
+		}
+		if (!$this->templates->get($tname)) {
+			$tmpl = new Template();
+			$tmpl->name = $tname;
+			$tmpl->fieldgroup = $fieldgroup;
+			$tmpl->urlSegments = 1;
+			$tmpl->flags = Template::flagSystem;
+			$tmpl->save();
+		}
+
+	}
+
+	public function uninstall() {
+
+		// delete language proxy template
+		$tname = 'language_url_proxy';
+		$tmpl = $this->templates->get($tname);
+		if ($tmpl) {
+			// remove any page using this template
+			$pages = $this->pages->find("template=$tname,include=all");
+			if ($pages) {
+				foreach ($pages as $p) {
+					$path = $p->path;
+					if ($this->pages->delete($p)) {
+						$this->message($this->_("Deleted language proxy page: $path"));
+					}
+				}
+			}
+			// remove template
+			$tmpl->flags = Template::flagSystemOverride;
+			$tmpl->flags = 0;
+			$this->templates->delete($tmpl);
+			// remove fieldgroup
+			$fieldgroup = $this->fieldgroups->get($tname);
+			if ($fieldgroup) 
+				$this->fieldgroups->delete($fieldgroup);
+		}
+
+	}
+	*/
+
+
+
+	static public function getModuleConfigInputfields(array $data) {
+
+		$data = array_merge(self::$defaults, $data);
+
+		$fields = new InputfieldWrapper();
+		$modules = wire("modules");
+
+		$field = $modules->get("InputfieldText");
+		$field->attr('name', 'defaultLang');
+		$field->attr('size', 10);
+		$field->attr('value', $data['defaultLang']);
+		$field->label = "Default language";
+		$field->description = "What is the url code you want to use for your defaul language?";
+		$field->notes = "Example: en, it, fr, ...";
+		$fields->append($field);
+		
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'noFolderForDefaultLanguage');
+		$field->attr('checked', empty($data['noFolderForDefaultLanguage']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->label = "Disable sub-folder for default language";
+		$field->description = "If selected the pages in default language will NOT have a sub-folder for the language (eg. /en/)";
+		$fields->append($field);
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'includePageId');
+		$field->attr('checked', empty($data['includePageId']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->label = "Page ID prefix";
+		$field->description = "Include page ID as prefix (id_slug)";
+		$fields->append($field);
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'includeParentId');
+		$field->attr('checked', empty($data['includeParentId']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->label = "Parent ID prefix";
+		$field->description = "Include parent ID as prefix (id_slug)";
+		$fields->append($field);
+
+		$field = $modules->get("InputfieldText");
+		$field->attr('name', 'publishedPageField');
+		$field->attr('value', $data['publishedPageField']);
+		$field->label = "Page field for published languages";
+		$field->description = "Page field name for defining the languages that are published."
+			." Create a page field i.e. language_published. Set the template to the one you use for the proxy pages."
+			." Set inputfield type to checkboxes. You also want to include a check in you selectors for navigation or lists"
+			." to determine if a page in the current language is really published.";
+		$field->notes = "Example: language_published (name of the field as string)";
+		$fields->append($field);
+
+		return $fields;
 	}
 }
