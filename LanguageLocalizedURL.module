@@ -72,7 +72,10 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	*/
 	public function mlUrl(HookEvent $event) {
 		
-		if( strpos( $_SERVER['HTTP_REFERER'], "page/link/?id" ) !== false ) return;
+		// prevent tinymce edit links modal from using language url for page list select
+		if(isset($_SERVER['HTTP_REFERER'])) {
+			if( strpos( $_SERVER['HTTP_REFERER'], "page/link/?id" ) !== false ) return;
+		}
 
 		$page = $event->object;
 		
