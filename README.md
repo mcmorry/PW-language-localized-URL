@@ -1,7 +1,7 @@
 PW-language-localized-URL
 =========================
 
-Version 0.0.6
+Version 0.0.7
 
 ProcessWire's module to generate and parse localized URL for multilingual websites.
 
