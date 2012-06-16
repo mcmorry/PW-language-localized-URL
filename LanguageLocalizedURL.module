@@ -60,8 +60,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
-		// replace real urls with language localized urls on textarea language fields
-		$this->addHookBefore('FieldtypeTextareaLanguage::wakeupValue', $this, 'replaceURL');
+		// replace real urls with language localized urls on textarea language fields only on field save
 		$this->addHookBefore('FieldtypeTextareaLanguage::sleepValue', $this, 'replaceURL');
 
 		// replace PW's url method
@@ -217,8 +216,6 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	/**
 	 * This method parses for real page urls in language textareas and 
 	 * replaces them with the localized language url
-	 *
-	 * Modified urls will get saved on first save as we also use this method on sleepValue method
 	 */
 	public function replaceURL(HookEvent $event) {
 
