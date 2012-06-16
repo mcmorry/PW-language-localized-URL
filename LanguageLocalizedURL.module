@@ -60,7 +60,11 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
-		$this->addHookBefore('FieldtypeTextareaLanguage::wakeupValue', $this, 'hookWakeupValue');
+		// replace real urls with language localized urls on textarea language fields
+		$this->addHookBefore('FieldtypeTextareaLanguage::wakeupValue', $this, 'replaceURL');
+		$this->addHookBefore('FieldtypeTextareaLanguage::sleepValue', $this, 'replaceURL');
+
+		// replace PW's url method
 		$this->addHookAfter('Page::path', $this, 'mlUrl');
 	}
 
@@ -211,50 +215,81 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	}
 
 	/**
-	 * parse for regular page urls in language textareas
-	 * modifies url with current language url (not stored)
+	 * This method parses for real page urls in language textareas and 
+	 * replaces them with the localized language url
+	 *
+	 * Modified urls will get saved on first save as we also use this method on sleepValue method
 	 */
-	public function hookWakeupValue(HookEvent $event) {
+	public function replaceURL(HookEvent $event) {
+
+		// prevent execution (some conflicts) on field edit for tinymce textarea language fields
+		if(wire("process") == "ProcessField") return;
 
 		$page = $event->arguments[0]; // not using, but here if you need it
 		$field = $event->arguments[1]; // not using, but here if you need it
 		$value = $event->arguments[2];
-		
+
 		if(empty($value)) return;
-		
-		$language = wire('user')->language;
-		
+
+		// if in admin, create array for each language to replace urls for each language value
+		$languages = array();
+		if( strpos($_SERVER['REQUEST_URI'], $this->config->urls->admin) !== false) {
+			foreach(wire('languages') as $key => $lang) $languages[] = $lang->id;
+		} else {
+			// if on frontend only use current user language
+			$languages[] = wire('user')->language->id;
+		}
+
 		if(!is_object($value)) return;
+
 		if($value instanceof LanguagesPageFieldValue) {
-			// get the language value for parsing for page urls
-			$replaced_value = $value->getLanguageValue($language->id);
+
+			// store user lang
+			$user_lang = wire('user')->language;
+
+			$rootUrl = rtrim(wire('config')->urls->root, '/');
+
+			foreach($languages as $lang) {
+
+				$replaced_value = '';
+
+				if($value == NULL) continue;
+
+				// get the language value for parsing for page urls
+				$replaced_value = $value->getLanguageValue($lang);
+
+				// find all links
+				if(!preg_match_all('{href=[\'"]([-_./a-z0-9]+)[\'"]}', $replaced_value, $matches)) return;
+
+				foreach($matches[1] as $key => $url) {
+
+					// slice off subdirectory if site is running from one, so we have a clean URL from PW-install root
+					if($rootUrl && strpos($url, $rootUrl) === 0) $url = substr($url, strlen($rootUrl));
+
+					// see if this is a link to a PW-managed page in the site
+					$linkPage = wire('pages')->get($url);
+
+					// if not a real PW url go on to the next
+					if(!$linkPage->id) continue;
+
+					// set user lang to current cycled language to be able to simply use $page->url
+					wire('user')->language = wire("languages")->get($lang);
+
+					// get language url (will return language url)
+					$langUrl = $linkPage->url;
+
+					// restore user lang
+					wire('user')->language = $user_lang;
+
+					// replace the default language URL with the language URL
+					$replaced_value = str_replace($matches[0][$key], "href='$langUrl'", $replaced_value);
+
+				}
+
+				// set the modified language value
+				$value->setLanguageValue($lang,$replaced_value);
+			}
 		}
-
-		$rootUrl = rtrim(wire('config')->urls->root, '/');
-
-		// find all links
-		if(!preg_match_all('{href=[\'"]([-_./a-z0-9]+)[\'"]}', $replaced_value, $matches)) return;
-		
-		foreach($matches[1] as $key => $url) {
-
-			// slice off subdirectory if site is running from one, so we have a clean URL from PW-install root
-			if($rootUrl && strpos($url, $rootUrl) === 0) $url = substr($url, strlen($rootUrl));
-			
-			// see if this is a link to a PW-managed page in the site
-			$linkPage = wire('pages')->get($url);
-
-			// if not go on to the next
-			if(!$linkPage->id) continue;
-
-			// get language url
-			$langUrl = $linkPage->url;
-
-			// replace the default language URL with the language URL
-			$replaced_value = str_replace($matches[0][$key], "href='$langUrl'", $replaced_value);
-		}
-
-		// set the modified language value
-		$value = $value->setLanguageValue($language->id, $replaced_value);
 		$event->return = $value;
 	}
 
