@@ -1,7 +1,7 @@
 <?php
 /**
 * Localized URL generator and parser
-* 
+*
 * Author: Maurizio Margiotta
 * http://processwire.com/talk/user/117-mcmorry/
 *
@@ -21,17 +21,14 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		'includePageId' => 0,
 		'includeParentId' => 0,
 		'publishedPageField' => 'language_published',
-		'noFolderForDefaultLanguage' => 0
+		'noFolderForDefaultLanguage' => 0,
+		'enableLanguageDomains' => 0,
+		'languageDomains' => ''
 	);
 
 	protected function getDefaultLanguage() {
 		if (!$this->defaultLang) return LanguageLocalizedURL::$defaults['defaultLang'];
 		return $this->defaultLang;
-	}
-
-	protected function getConfig($key) {
-		if (!$this->$key) return LanguageLocalizedURL::$defaults[$key];
-		return $this->$key;
 	}
 
 	/**
@@ -44,7 +41,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 007,
+			'version' => 008,
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -56,10 +53,20 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 * Initialize the module
 	 *
 	 * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
-	 * when ProcessWire's API is ready. As a result, this is a good place to attach hooks. 
+	 * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
 	 *
 	 */
 	public function init() {
+
+		// get admin base url (as it can be changed in PW)
+		$this->adminUrl = $this->pages->get(2)->url;
+
+		// if multi-language domains enabled and not in backend, prepend langCode segment to path
+		// required to get language domains to work while directing request to language proxy pages
+		if($this->enableLanguageDomains && (strpos($_GET['it'], ltrim($this->adminUrl,"/")) === false)) {
+			if(strlen(trim($this->languageDomains)) > 0) $this->routeLanguage();
+		}
+
 		// replace real urls with language localized urls on textarea language fields only on field save
 		$this->addHookBefore('FieldtypeTextareaLanguage::sleepValue', $this, 'replaceURL');
 
@@ -68,20 +75,42 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	}
 
 	/**
-	* This method builds a localized url with this format: [language code]/[localized parent title]/[localized page title]
-	* It accepts two parameters, both optional:
-	* 1: bool If true the url will contain the id of the loaded page: [language code]/[localized parent title]/[page id]_[localized page title]
-	* 2: bool If true the url will contain the id of the parents: [language code]/[parent id]_[localized parent title]/[localized page title]
+	 * This method prepends language code segment to page request
+	 * required to get language domains to work while directing request to language proxy pages
+	 * $_GET['it'] is the query string for the path used by ProcessWire gateway
+	 */
+	private function routeLanguage() {
+		$httpHost = strtolower(wire('config')->httpHost);
+		$domainsArray = explode("\n", strtolower($this->languageDomains));
+
+		// go through each domain configured and prepend language code
+		foreach ($domainsArray as $key => $value) {
+			$domain = trim(substr($value,0,strpos($value,":")));
+			$langCode = trim(substr($value,strpos($value,":")+1));
+			if(strpos($httpHost,$domain) !== false) {
+				if(isset($_GET['it'])) $_GET['it'] = "/$langCode/" . ltrim($_GET['it'], '/');
+					else $_GET['it'] = "/$langCode/";
+			}
+		}
+	}
+
+	/**
+	* Method to create a localized url and is hooked to replace the return of Page::path
+	* Depepending on the module setting it does build the various formats
+	*
 	*/
 	public function mlUrl(HookEvent $event) {
-		
+
 		// prevent tinymce edit links modal from using language url for page list select
+		// this links inserted will get translated to language urls after saving using a
+		// field hook replaceURL
 		if(isset($_SERVER['HTTP_REFERER'])) {
 			if( strpos( $_SERVER['HTTP_REFERER'], "page/link/?id" ) !== false ) return;
 		}
 
+		// get the page current object
 		$page = $event->object;
-		
+
 		// exclude from admin
 		if($page->template == 'admin') return;
 
@@ -92,22 +121,28 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		// if on homepage return current language root
 		if($page->id === 1) {
-			if ($lang === $defaultLang && $this->getConfig("noFolderForDefaultLanguage")) return $event->return = '/';
-			else return $event->return = "/$lang/";
+			if ($lang === $defaultLang && ($this->noFolderForDefaultLanguage || $this->enableLanguageDomains)) return $event->return = '/';
+				else if($this->enableLanguageDomains) return $event->return = '/';
+					else return $event->return = "/$lang/";
 		}
-		
+
 		// generate the url using titles and, eventually id
 		$path = '';
 		$parents = $page->parents();
 		foreach($parents as $parent) {
-			if($parent->id > 1) {       
-				$path .= "/".($this->getConfig("includeParentId")?$parent->id.'_':'').$this->toSlug($parent->title);
+			if($parent->id > 1) {
+				$path .= '/' . ($this->includeParentId ? $parent->id . '_' : '') . $this->toSlug($parent->title);
 			}
 		}
-		$url = $path . '/'.($this->getConfig("includePageId")?$page->id.'_':'').$this->toSlug($page->title) . '/'; 
-		
-		if ($lang === $defaultLang && $this->getConfig("noFolderForDefaultLanguage")) $event->return = $url;
-		else $event->return = '/'.$lang.$url;
+		$url = $path . '/' . ($this->includePageId ? $page->id . '_' : '') . $this->toSlug($page->title) . '/';
+
+		if ($lang === $defaultLang) {
+			if($this->noFolderForDefaultLanguage || $this->enableLanguageDomains) $event->return = $url;
+				else $event->return = '/' . $lang . $url;
+		} else {
+			if($this->enableLanguageDomains) $event->return = $url;
+				else $event->return = '/' . $lang . $url;
+		}
 	}
 
 	private function toSlug($str) {
@@ -141,6 +176,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 			foreach($segments as $segment){
 				// save instance for testing pagenum / urlsegments
 				$parent = $page;
+				// resolve the page
 				$page = $this->getPage($page, $segment);
 
 				if($page === null) {
@@ -153,9 +189,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 					} else if($parent->template->urlSegments) {
 						// return past found page
 						$page = $parent;
-						
 						$realSegmentsFound = true;
-						
 						break;
 					} else {
 						throw new Wire404Exception();
@@ -166,9 +200,9 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 				$langname = $lang == 'default' ? $this->getDefaultLanguage() : $lang;
 
 				// if the language is not published throw 404
-				// this requires a page field "language_published" with template set the same 
+				// this requires a page field "language_published" with template set the same
 				// as for the language proxy pages /en/, /de/,...
-				$pub_field = $this->getConfig("publishedPageField");
+				$pub_field = $this->publishedPageField;
 				if($page->get($pub_field)){
 					if(!$page->get($pub_field)->has($pages->get("/$langname/")))
 						throw new Wire404Exception();
@@ -177,7 +211,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		} else {
 			$page = $basePage;
 		}
-		
+
 		// Reindex urlSegments
 		$pagesCount = count($page->parents);
 		if (!$realSegmentsFound || count($segments) > $pagesCount) {
@@ -185,11 +219,15 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 				$input->setUrlSegment(1, null);
 			}
 		}
-		
-		$this->fuel->set('page', $page);
+
+		$this->setFuel('page', $page);
 		return $page;
 	}
-	
+
+ 	/**
+	 * Helper method to resolve the page using the current url segment
+	 *
+	 */
 	private function getPage($basePage, $segment) {
 		$pages  = $this->pages;
 
@@ -214,14 +252,17 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	}
 
 	/**
-	 * This method parses for real page urls in language textareas and 
+	 * This method parses for real page urls in language textareas and
 	 * replaces them with the localized language url
+	 *
+	 * Modified urls will get saved on first save as we also use this method on sleepValue hook
 	 */
 	public function replaceURL(HookEvent $event) {
 
 		// prevent execution (some conflicts) on field edit for tinymce textarea language fields
 		if(wire("process") == "ProcessField") return;
 
+		// the hooked method has 3 arguments
 		$page = $event->arguments[0]; // not using, but here if you need it
 		$field = $event->arguments[1]; // not using, but here if you need it
 		$value = $event->arguments[2];
@@ -337,14 +378,12 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 			$this->templates->delete($tmpl);
 			// remove fieldgroup
 			$fieldgroup = $this->fieldgroups->get($tname);
-			if ($fieldgroup) 
+			if ($fieldgroup)
 				$this->fieldgroups->delete($fieldgroup);
 		}
 
 	}
 	*/
-
-
 
 	static public function getModuleConfigInputfields(array $data) {
 
@@ -357,23 +396,54 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->attr('name', 'defaultLang');
 		$field->attr('size', 10);
 		$field->attr('value', $data['defaultLang']);
+		$field->set("collapsed",Inputfield::collapsedBlank);
 		$field->label = "Default language";
-		$field->description = "What is the url code you want to use for your defaul language?";
+		$field->description = "What is the url code you want to use for your default language?";
 		$field->notes = "Example: en, it, fr, ...";
 		$fields->append($field);
-		
+
+
 		$field = $modules->get("InputfieldCheckbox");
 		$field->attr('name', 'noFolderForDefaultLanguage');
 		$field->attr('checked', empty($data['noFolderForDefaultLanguage']) ? '' : 'checked');
 		$field->attr('value', 1);
+		$field->set("collapsed",Inputfield::collapsedBlank);
 		$field->label = "Disable sub-folder for default language";
 		$field->description = "If selected the pages in default language will NOT have a sub-folder for the language (eg. /en/)";
 		$fields->append($field);
+
+
+		$fieldWrapper = $modules->get("InputfieldFieldset");
+		$fieldWrapper->label = "Multi-language domains";
+		$fieldWrapper->description = "If enabled, pages will NOT have a sub-folder for the language (eg. /en/, /de/). "
+							."To get this to work you need to add your domains config in text field below 'Domains and languages'.";
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->attr('name', 'enableLanguageDomains');
+		$field->attr('checked', empty($data['enableLanguageDomains']) ? '' : 'checked');
+		$field->attr('value', 1);
+		$field->set("collapsed",Inputfield::collapsedBlank);
+		$field->label = "Enable multi-langauge domains.";
+		$fieldWrapper->add($field);
+
+		$field = $modules->get("InputfieldTextarea");
+		$field->name = "languageDomains";
+		$field->label = "Domains and languages";
+		$field->attr('value', $data['languageDomains']);
+		$field->set("collapsed", $data['enableLanguageDomains'] == 1 ? Inputfield::collapsedNo : Inputfield::collapsedYes);
+		$field->description = "Add here the domains string configuration. Each line representing a domain:langcode. Don't add http or https, just simple domain like: www.example.com:en or www.example.de:de";
+		$field->notes = "FOR EXAMPLE\n domain.com:en\n domain.de:de"
+							. "\nOR SUBDOMAINS\n en.domain.com:en\n de.domain.com:de";
+		$fieldWrapper->add($field);
+
+		$fields->append($fieldWrapper);
+
 
 		$field = $modules->get("InputfieldCheckbox");
 		$field->attr('name', 'includePageId');
 		$field->attr('checked', empty($data['includePageId']) ? '' : 'checked');
 		$field->attr('value', 1);
+		$field->set("collapsed",Inputfield::collapsedBlank);
 		$field->label = "Page ID prefix";
 		$field->description = "Include page ID as prefix (id_slug)";
 		$fields->append($field);
@@ -382,9 +452,11 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->attr('name', 'includeParentId');
 		$field->attr('checked', empty($data['includeParentId']) ? '' : 'checked');
 		$field->attr('value', 1);
+		$field->set("collapsed",Inputfield::collapsedBlank);
 		$field->label = "Parent ID prefix";
 		$field->description = "Include parent ID as prefix (id_slug)";
 		$fields->append($field);
+
 
 		$field = $modules->get("InputfieldText");
 		$field->attr('name', 'publishedPageField');
