@@ -98,7 +98,7 @@ Plus, the limit of 4 segments includes the page tree, so it could be necessary t
 
 ### Language Domains
 
-This module supports language domains. So you can have mapped each language to its own domain. To make this work you need to have the different domains point to the default domain. Then enable this option in the module settings and enter your domains in the textarea, each domain on its own line.
+This module supports language domains. So you can have each language mapped to its own domain. To make this work you need to have the different domains point to the default domain and PW install. Then enable this option in the module settings and enter your domains in the textarea, each domain on its own line.
 
 The format is:
 
