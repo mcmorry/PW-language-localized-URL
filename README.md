@@ -3,6 +3,8 @@ PW-language-localized-URL
 
 Version 0.0.8
 
+Thread: http://processwire.com/talk/topic/1342-languagelocalizedurl/
+
 ProcessWire's module to generate and parse localized URL for multilingual websites.
 
 This module is useful to generate localized url using the language code as first 'folder', followed by localized titles of the nested pages:
