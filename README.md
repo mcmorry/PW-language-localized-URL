@@ -112,3 +112,10 @@ You can also use subdomains:
 	de.domain.com:de
 	fr.domain.com:fr
 
+**Result**:
+
+Now you can access the different languages simply through the different domains. For example the `/about/` page would be available like this:
+
+	domain.com/about/
+	domain.de/ueber/
+	domain.fr/au-sujet-de/
