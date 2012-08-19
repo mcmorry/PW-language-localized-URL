@@ -2,16 +2,16 @@
 /**
 * Localized URL generator and parser
 *
-* Author: Maurizio Margiotta
+* Authors: 
+* Maurizio Margiotta
 * http://processwire.com/talk/user/117-mcmorry/
-*
+* Soma:
+* http://processwire.com/talk/user/100-soma/
+* 
 * Source: https://github.com/mcmorry/PW-language-localized-URL
 *
 * Many thanks to Diogo for starting concept and support
 * http://processwire.com/talk/user/88-diogo/
-*
-* Many thanks to Soma for many improvements
-* http://processwire.com/talk/user/100-soma/
 *
 */
 class LanguageLocalizedURL extends WireData implements Module, ConfigurableModule {
