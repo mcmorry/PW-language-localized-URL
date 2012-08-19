@@ -463,7 +463,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->attr('value', $data['publishedPageField']);
 		$field->label = "Page field for published languages";
 		$field->description = "Page field name for defining the languages that are published."
-			." Create a page field i.e. language_published. Set the template to the one you use for the proxy pages."
+			." Create a field i.e. language_published of type 'Page'. Under Input > Selectable Pages, set the template to the one you use for the proxy pages. Set input field type to checkboxes."
 			." Set inputfield type to checkboxes. You also want to include a check in you selectors for navigation or lists"
 			." to determine if a page in the current language is really published.";
 		$field->notes = "Example: language_published (name of the field as string)";
