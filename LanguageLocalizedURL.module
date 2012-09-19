@@ -444,7 +444,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->attr('checked', empty($data['enableLanguageDomains']) ? '' : 'checked');
 		$field->attr('value', 1);
 		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Enable multi-langauge domains.";
+		$field->label = "Enable multi-language domains.";
 		$fieldWrapper->add($field);
 
 		$field = $modules->get("InputfieldTextarea");
