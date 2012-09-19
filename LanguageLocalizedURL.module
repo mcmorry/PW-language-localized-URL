@@ -430,6 +430,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		$field->set("collapsed",Inputfield::collapsedBlank);
 		$field->label = "Disable sub-folder for default language";
 		$field->description = "If selected the pages in default language will NOT have a sub-folder for the language (eg. /en/)";
+		$field->notes = "Make sure you disable 'Multi-language domains' below, if you use this option";
 		$fields->append($field);
 
 
