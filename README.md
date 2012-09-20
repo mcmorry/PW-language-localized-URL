@@ -1,7 +1,7 @@
 PW-language-localized-URL
 =========================
 
-Version 0.0.8
+Version 0.0.9
 
 Thread: http://processwire.com/talk/topic/1342-languagelocalizedurl/
 
