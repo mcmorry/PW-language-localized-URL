@@ -41,7 +41,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 011, // 0.0.9
+			'version' => 012, // 0.1.0
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -64,7 +64,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		// if multi-language domains enabled and not in backend, prepend langCode segment to path
 		// required to get language domains to work while directing request to language proxy pages
 		if(isset($_GET['it'])) {
-			if($this->enableLanguageDomains && (strpos($_GET['it'], trim($this->adminUrl,"/")) === false)) {
+			if($this->enableLanguageDomains && (strpos($_SERVER['REQUEST_URI'], $this->adminUrl) === false)) {
 				if(strlen(trim($this->languageDomains)) > 0) $this->routeLanguage();
 			}
 		} else {
@@ -78,7 +78,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		// behind the scenes manipulating the "it" get param. This ensures the parseUrl works as if
 		// there would be a language segment, it's just not visible in the url
 		if(isset($_GET['it'])) {
-			if($this->noFolderForDefaultLanguage && (strpos($_GET['it'], trim($this->adminUrl,"/")) === false)
+			if($this->noFolderForDefaultLanguage && (strpos($_SERVER['REQUEST_URI'], $this->adminUrl) === false)
 		   && (strpos( "/". $this->getDefaultLanguage() . "/", "/".$_GET['it']) === false)) {
 			$_GET['it'] = "/{$this->getDefaultLanguage()}/" . $_GET['it'];
 			}
