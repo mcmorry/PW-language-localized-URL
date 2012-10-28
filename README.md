@@ -38,7 +38,7 @@ To make it to work it's necessary to follow these steps:
 		echo $page->render();
 	?>`
 
-1. Enable "Allow URL Segments" for this template.
+1. Enable "Allow URL Segments" for this template and also "Allow Page Numbers?" if you want to use pagination.
 1. Create below the root page, one page per each language (en, it, fr, ...) (for the default language too if you don't want disable it in the settings) using that template.
 The names of these pages should match the names you set in the Languages settings of ProcessWire. These names will be used as first folder inside the URLs.
 On these pages could be useful to set the Status to Hidden.

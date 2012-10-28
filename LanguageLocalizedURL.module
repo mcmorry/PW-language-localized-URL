@@ -79,7 +79,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		// there would be a language segment, it's just not visible in the url
 		if(isset($_GET['it'])) {
 			if($this->noFolderForDefaultLanguage && (strpos($_SERVER['REQUEST_URI'], $this->adminUrl) === false)
-		   && (strpos( "/". $this->getDefaultLanguage() . "/", "/".$_GET['it']) === false)) {
+			&& (strpos( "/". $this->getDefaultLanguage() . "/", "/".$_GET['it']) === false)) {
 			$_GET['it'] = "/{$this->getDefaultLanguage()}/" . $_GET['it'];
 			}
 		}
