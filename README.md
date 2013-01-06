@@ -4,7 +4,7 @@ PW-language-localized-URL
 Version 0.1.1
 
 ### New in version 0.1.1
-**Important if upgrading from 0.1.0**: The gateway template php code isn't nessecary anymore, as the module will return the rendered page now without the need of code in the template itself. This is the only method that allows to get rid of the "double render" issue it had before and to get it to work with the feature introduced in PW 2.3 to prependTemplateFile and appendTemplateFile (via config.php).
+**Important if upgrading from 0.1.0**: The gateway template php code isn't necessary anymore, as the module will return the rendered page now without the need of code in the template itself. This is the only method that allows to get rid of the "double render" issue it had before and to get it to work with the new feature introduced in PW 2.3: prependTemplateFile and appendTemplateFile (via config.php).
 
 Module Thread: http://processwire.com/talk/topic/1342-languagelocalizedurl/
 
