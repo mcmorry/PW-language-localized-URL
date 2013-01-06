@@ -21,6 +21,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		'includePageId' => 0,
 		'includeParentId' => 0,
 		'publishedPageField' => 'language_published',
+		'gatewayTemplate' => 'language_gateway',
 		'noFolderForDefaultLanguage' => 0,
 		'enableLanguageDomains' => 0,
 		'languageDomains' => ''
@@ -41,7 +42,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 012, // 0.1.0
+			'version' => 013, // 0.1.1
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -57,6 +58,8 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
+		// define options for this module
+		$this->options = array_merge(self::$defaults, $this->data);
 
 		// get admin base url (as it can be changed in PW)
 		$this->adminUrl = $this->pages->get(2)->url;
@@ -90,6 +93,8 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		// replace PW's url method
 		$this->addHookAfter('Page::path', $this, 'mlUrl');
 
+		// render page hook to determine current page to render
+		$this->addHookAfter('Page::render', $this, 'parseUrl');
 
 	}
 
@@ -174,8 +179,9 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 	/**
 	* Parse the localized URL to load the correct page
 	*/
-	public function parseUrl() {
-		$page       = $this->page;
+	public function parseUrl(HookEvent $event) {
+		$page = $event->object;
+		if($page->template != $this->options['gatewayTemplate']) return;
 		$user       = $this->user;
 		$languages  = $this->languages;
 		$input      = $this->input;
@@ -241,7 +247,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		}
 
 		$this->setFuel('page', $page);
-		return $page;
+		$event->return = $page->render();
 	}
 
 	/**
@@ -411,6 +417,15 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		$fields = new InputfieldWrapper();
 		$modules = wire("modules");
+
+		$field = $modules->get("InputfieldText");
+		$field->attr('name', 'gatewayTemplate');
+		$field->attr('size',20);
+		$field->attr('value', $data['gatewayTemplate']);
+		$field->set("collapsed",Inputfield::collapsedBlank);
+		$field->label = "Gateway Template";
+		$field->description = "The template name used for the gateway pages in your root.";
+		$fields->append($field);
 
 		$field = $modules->get("InputfieldText");
 		$field->attr('name', 'defaultLang');
