@@ -1,4 +1,4 @@
-PW-language-localized-URL
+LanguageLocalizedURL
 =========================
 
 Version 0.1.1
