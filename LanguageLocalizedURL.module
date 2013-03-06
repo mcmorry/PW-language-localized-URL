@@ -42,7 +42,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 
 		return array(
 			'title' => 'Generate and parse localized URL',
-			'version' => 013, // 0.1.1
+			'version' => 014, // 0.1.1
 			'summary' => "This module is useful to generate localized url. See documentation: https://github.com/mcmorry/PW-language-localized-URL",
 			'href' => '',
 			'singular' => true,
@@ -192,7 +192,7 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 		if ($lang == $this->getDefaultLanguage()) $lang = 'default';
 		$user->language = $languages->get($lang);
 
-		// search the page to open
+		// search the page to render
 		$basePage = $pages->get("/");
 		$segments = $input->urlSegments;
 		$realSegmentsFound = false;
@@ -222,20 +222,22 @@ class LanguageLocalizedURL extends WireData implements Module, ConfigurableModul
 					}
 				}
 
-				// real language url segment name
-				$langname = $lang == 'default' ? $this->getDefaultLanguage() : $lang;
 
-				// if the language is not published throw 404
-				// this requires a page field "language_published" with template set the same
-				// as for the language proxy pages /en/, /de/,...
-				$pub_field = $this->publishedPageField;
-				if($page->get($pub_field)){
-					if(!$page->get($pub_field)->has($pages->get("/$langname/")))
-						throw new Wire404Exception();
-				}
 			}
 		} else {
 			$page = $basePage;
+		}
+
+		// real language url segment name
+		$langname = $lang == 'default' ? $this->getDefaultLanguage() : $lang;
+
+		// if the language is not published throw 404
+		// this requires a page field "language_published" with template set the same
+		// as for the language proxy pages /en/, /de/,...
+		$pub_field = $this->publishedPageField;
+		if($page->get($pub_field)){
+			if(!$page->get($pub_field)->has($pages->get("/$langname/")))
+				throw new Wire404Exception();
 		}
 
 		// Reindex urlSegments
