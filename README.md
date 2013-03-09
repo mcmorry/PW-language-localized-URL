@@ -42,10 +42,10 @@ To make it work it's necessary to follow these steps:
 1. Change all text fields you like to use `TextLanguage` or `TextareaLanguage`.
 
 #### Now let's start setup needed
-1. Create a new template and name it "language_gateway". (This template's default name can be changed in the modules settings)
+1. Create a new template and name it "language_gateway" and a corresponding template file "language_gateway.php". (This template's default name can be changed in the modules settings)
 1. Enable "Allow URL Segments" for this template and also "Allow Page Numbers?" if you want to use pagination.
 1. Below the root page, create one page per language (en, it, fr, ...) (for the default language too if you don't want disable it in the settings) using that "language_gateway" template.
-The `names` of these pages should match the `names` you set on the languages setup in ProcessWire. These names will be used as first folder inside the URLs. On these pages could be useful to set the Status to Hidden.
+The `names` of these pages should match the `names` you set on the languages setup in ProcessWire. These names will be used as first folder inside the URLs. On these pages set the Status to Hidden to prevent them from being included in lists and searches.
 1. Enter in the module settings to inidicate the default language code (eg. 'en'), that will be mapped to the default languge inside ProcessWire.
 1. Create the pages of the website directly below the root page.
 
