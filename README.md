@@ -90,6 +90,13 @@ If you print a list of pages and in all your finds, you will need to filter out 
 		echo "<li><a$class href='{$child->url()}'>{$child->title}</a></li>";
 	}
 
+
+## Language Switch Example
+
+To construct a language switch for the available languages you need this code somehwere in your head.inc or before content output.
+
+[Language Switch Code Snippet](https://gist.github.com/somatonic/5130992)
+
 ## urlSegments
 
 This module uses the url segments of ProcessWire to map the localized pages to real ones but the array of segment is re-indexed to contains only real segments.
